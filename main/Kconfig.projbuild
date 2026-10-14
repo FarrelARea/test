@@ -1,0 +1,46 @@
+menu "Virtual Keyboard"
+
+    config VKEY_WIFI_SSID
+        string "WiFi SSID (station mode)"
+        default ""
+        help
+            SSID of the router the device joins in station mode. Empty means
+            the device boots straight into soft-AP pairing mode.
+
+    config VKEY_WIFI_PASSWORD
+        string "WiFi password"
+        default ""
+        help
+            Passphrase for the router. Empty is accepted for open networks.
+
+    config VKEY_AP_FALLBACK_TIMEOUT_MS
+        int "Station connect timeout before falling back to soft-AP"
+        default 15000
+        help
+            Milliseconds to wait for an IP before switching to soft-AP mode
+            (SSID: VKEY-XXXX) so the phone can still pair without a router.
+
+    config VKEY_MAX_TEXT_LEN
+        int "Maximum text length relayed from phone to display"
+        default 4000
+
+    config VKEY_TOUCH_X_MIN
+        int "Touch raw X minimum"
+        default 4
+        range 0 4095
+
+    config VKEY_TOUCH_X_MAX
+        int "Touch raw X maximum"
+        default 307
+        range 1 4095
+
+    config VKEY_TOUCH_Y_MIN
+        int "Touch raw Y minimum"
+        default 4
+        range 0 4095
+
+    config VKEY_TOUCH_Y_MAX
+        int "Touch raw Y maximum"
+        default 475
+        range 1 4095
+endmenu

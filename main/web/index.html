@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Virtual Keyboard</title>
+<style>
+  :root {
+    --bg: #111111; --ink: #F4EFE3; --muted: #A8A090;
+    --accent: #E0532E; --ok: #7FA98A; --warn: #DBA539;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink);
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif; }
+  #app { display: flex; flex-direction: column; height: 100%; max-width: 900px; margin: 0 auto; }
+  #status { display: flex; align-items: center; gap: 8px; padding: 10px 14px;
+    font-size: 14px; font-weight: 600; border-bottom: 1px solid #2a2a2a; }
+  #dot { width: 10px; height: 10px; border-radius: 50%; background: var(--warn); }
+  #dot.connected { background: var(--ok); }
+  #dot.bad { background: var(--accent); }
+  #msg { flex: 1; text-align: right; color: var(--muted); font-weight: 400; }
+  textarea { flex: 1; width: 100%; resize: none; border: 0; outline: 0; background: var(--bg);
+    color: var(--ink); font-size: 22px; line-height: 1.5; padding: 14px; }
+  textarea:focus { background: #151515; }
+  #clear { margin: 10px 14px; padding: 14px; border: 0; border-radius: 12px;
+    background: var(--accent); color: #fff; font-size: 17px; font-weight: 700; }
+  #err { display: none; flex: 1; padding: 40px 24px; text-align: center; color: var(--warn);
+    font-size: 18px; line-height: 1.6; }
+  #err b { display: block; color: var(--ink); font-size: 22px; margin-bottom: 8px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="status">
+    <div id="dot"></div>
+    <span id="state">Menghubungkan...</span>
+    <span id="msg"></span>
+  </div>
+  <div id="err">
+    <b id="errTitle"></b><span id="errText"></span>
+  </div>
+  <textarea id="input" placeholder="Ketik di sini..." autocomplete="off" autocorrect="off"
+    autocapitalize="sentences" spellcheck="false" enterkeyhint="enter"></textarea>
+  <button id="clear" type="button">Clear</button>
+</div>
+<script>
+(function () {
+  "use strict";
+  var MAX = 4000;
+  var el = {
+    input: document.getElementById("input"),
+    clear: document.getElementById("clear"),
+    dot: document.getElementById("dot"),
+    state: document.getElementById("state"),
+    msg: document.getElementById("msg"),
+    err: document.getElementById("err"),
+    errTitle: document.getElementById("errTitle"),
+    errText: document.getElementById("errText")
+  };
+  var sid = new URLSearchParams(location.search).get("s");
+  var ws = null, dead = false, pendingClear = false;
+
+  function showErr(title, text) {
+    dead = true; closeWs();
+    el.errTitle.textContent = title;
+    el.errText.textContent = text;
+    el.err.style.display = "block";
+    el.input.style.display = "none";
+    el.clear.style.display = "none";
+  }
+  function setState(label, cls, msg) {
+    el.state.textContent = label;
+    el.dot.className = cls;
+    el.msg.textContent = msg || "";
+  }
+  function wsUrl() {
+    var proto = location.protocol === "https:" ? "wss" : "ws";
+    return proto + "://" + location.host + "/ws?s=" + encodeURIComponent(sid);
+  }
+  function connect() {
+    if (dead) return;
+    setState("Menghubungkan...", "", "");
+    ws = new WebSocket(wsUrl());
+    ws.onopen = function () {
+      setState("Terhubung", "connected", "ketik di layar");
+      if (el.input.value) send();
+      else sendClear();
+    };
+    ws.onmessage = function (ev) {
+      var m = JSON.parse(ev.data);
+      if (m.t === "clear") {
+        pendingClear = true;
+        el.input.value = "";
+        pendingClear = false;
+        setState("Terhubung", "connected", "layar dikosongkan");
+      }
+    };
+    ws.onclose = function () {
+      setState("Terputus", "bad", "mencoba sambung lagi...");
+      if (!dead) setTimeout(connect, 1000);
+    };
+    ws.onerror = function () { try { ws.close(); } catch (e) {} };
+  }
+  function send() {
+    if (ws && ws.readyState === WebSocket.OPEN)
+      ws.send(JSON.stringify({ t: "text", d: el.input.value.slice(0, MAX) }));
+  }
+  function sendClear() {
+    if (ws && ws.readyState === WebSocket.OPEN)
+      ws.send(JSON.stringify({ t: "clear" }));
+  }
+  function closeWs() { try { ws && ws.close(); } catch (e) {} ws = null; }
+
+  el.input.addEventListener("input", function () { if (!pendingClear) send(); });
+  el.clear.addEventListener("click", function () {
+    pendingClear = true; el.input.value = ""; pendingClear = false;
+    sendClear();
+  });
+
+  if (!sid) {
+    showErr("Sesi tidak ditemukan", "QR ini basi atau tidak valid. Scan ulang QR di layar.");
+  } else {
+    el.input.focus();
+    connect();
+  }
+})();
+</script>
+</body>
+</html>
